@@ -9,8 +9,8 @@ Ensure you have the following installed on your system:
 
 ### 1. Clone the Repository
 ```sh
-git clone <your-repo-url>
-cd <your-project-folder>
+git clone https://github.com/KamilMleczko/SwiftParser.git
+cd SwiftParser
 ```
 
 ### 2. Start the Application with Docker

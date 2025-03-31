@@ -8,8 +8,6 @@ COPY package*.json ./
 
 RUN npm install
 
-RUN apt-get update && apt-get install -y netcat-openbsd
-
 COPY . .
 COPY docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
