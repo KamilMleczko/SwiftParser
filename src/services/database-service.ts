@@ -51,9 +51,6 @@ export class DatabaseService {
         const headquartersMap = new Map<string, SwiftCode>();
         
         rows.forEach((row: any) => {
-            console.log("Row Data:", row);
-        });
-        rows.forEach((row: any) => {
             const countryISO2 = row['COUNTRY ISO2 CODE']?.trim().toUpperCase() || "UNKNOWN";
             const swiftCode = row['SWIFT CODE']?.trim() || "UNKNOWN";
             //redundant may be omitted
@@ -119,9 +116,10 @@ export class DatabaseService {
                 await this.db.createCollection('swift_codes');
                 // Create indexes for efficient querying
                 const swiftCodesCollection = this.db.collection('swift_codes');
-                await swiftCodesCollection.createIndex({ swiftCode: 1 }, { unique: true });
-                await swiftCodesCollection.createIndex({ countryISO2: 1 });
-                await swiftCodesCollection.createIndex({ 'branches': 1 });
+                await swiftCodesCollection.createIndex({ swiftCode: 1 }, { unique: true }); // for unique swift codes
+                await swiftCodesCollection.createIndex({ swiftCode: 1, isHeadquarter: 1 }); // for headquater of branch searches
+                await swiftCodesCollection.createIndex({ countryISO2: 1 }); //optimized for filtering by country
+                await swiftCodesCollection.createIndex({ isHeadquarter: 1 }); //optimized for filtering headquarters quickly
             }
         } catch (error) {
             console.error('Failed to initialize database:', error);
@@ -142,7 +140,7 @@ export class DatabaseService {
             
             if (swiftCodes.length > 0) {
                 await swiftCodesCollection.insertMany(swiftCodes);
-                console.log(`Inserted ${swiftCodes.length} SWIFT codes into database`);
+                //console.log(`Inserted ${swiftCodes.length} SWIFT codes into database`);
             } else {
                 console.log('No SWIFT codes to insert');
             }
@@ -156,7 +154,7 @@ export class DatabaseService {
         try {
             console.log('Parsing SWIFT codes file...');
             const swiftCodes = this.parseFile();
-            console.log(`Parsed ${swiftCodes.length} SWIFT codes`);
+            //console.log(`Parsed ${swiftCodes.length} SWIFT codes`);
             
             if (!this.client || !this.db) {
                 await this.connect();
@@ -271,7 +269,7 @@ export class DatabaseService {
                         { swiftCode: headquarters.swiftCode },
                         { $addToSet: { branches: newSwiftCode.swiftCode } }
                     );
-                    console.log(`Added branch ${newSwiftCode.swiftCode} to headquarters ${headquarters.swiftCode}`);
+                    //console.log(`Added branch ${newSwiftCode.swiftCode} to headquarters ${headquarters.swiftCode}`);
                 }
                 else {
                     console.log(`No headquarters found for branch ${newSwiftCode.swiftCode}`);
@@ -347,10 +345,8 @@ export class DatabaseService {
                 );
                 
                 if (headquaters && Array.isArray(headquaters.branches)) {
-                    // Remove the branch manually
                     const updatedBranches = headquaters.branches.filter(branch => branch !== swiftCode);
             
-                    // Update the headquarters document with the new branches array
                     await swiftCodesCollection.updateOne(
                         { swiftCode: headquaters.swiftCode },
                         { $set: { branches: updatedBranches } }
