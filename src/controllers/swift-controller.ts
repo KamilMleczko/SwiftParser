@@ -1,4 +1,3 @@
-import { SwiftCode } from './../interfaces/swift-interface';
 import { Request, Response } from 'express';
 import { DatabaseService } from '../services/database-service';
 
@@ -13,6 +12,7 @@ export class SwiftCodeController {
             res.status(200).json({ message: `Test endpoint successful {${req.params['test_string']}}` });
         } catch (error) {
             console.error('Test endpoint failed:', error);
+            // res.status(500).json({ message: `Internal server error: ${error} ` }); // for debugging
             res.status(500).json({ message: 'Internal server error' });
         }
     }
@@ -21,8 +21,8 @@ export class SwiftCodeController {
             const swiftCode = req.params['swift_code'];
             console.log(`Fetching SWIFT code: ${swiftCode}`);
             const swiftCodeData = await this.dbService.getSwiftCodeByCode(swiftCode);
-            
-            if (!swiftCodeData) {
+            console.log(`Fetched SWIFT code array: ${swiftCodeData?.address} `);
+            if (!swiftCodeData ) {
                 res.status(404).json({ message: `SWIFT code ${swiftCode} not found` });
                 return;
             }
@@ -37,16 +37,14 @@ export class SwiftCodeController {
                     countryName: swiftCodeData.countryName,
                     isHeadquarter: swiftCodeData.isHeadquarter,
                     swiftCode: swiftCodeData.swiftCode,
-                    branches: branches?.map((branch) => {
-                        return ({
-                            address: branch.address,
-                            bankName: branch.name,
-                            countryISO2: branch.countryISO2,
-                            countryName: branch.countryName,
-                            isHeadquarter: branch.isHeadquarter,
-                            swiftCode: branch.swiftCode
-                        })
-                    })
+                    branches: branches ? branches.map(branch => ({
+                        address: branch.address,
+                        bankName: branch.name,
+                        countryISO2: branch.countryISO2,
+                        countryName: branch.countryName,
+                        isHeadquarter: branch.isHeadquarter,
+                        swiftCode: branch.swiftCode
+                    })) : [] //to make sure it will at least return an empty array
                 });
             } else {
                 //For branches, we just return the data
@@ -61,7 +59,8 @@ export class SwiftCodeController {
             }
         } catch (error) {
             console.error('Error fetching SWIFT code:', error);
-            res.status(500).json({ message: 'Internal server error' });
+           // res.status(500).json({ message: `Internal server error: ${error} ` });
+            res.status(500).json({ message: `Internal server error`});
         }
     }
 
@@ -70,7 +69,7 @@ export class SwiftCodeController {
             const countryISO2 = req.params['countryISO2'].toUpperCase();
             const swiftCodes = await this.dbService.getSwiftCodesByCountry(countryISO2);
 
-            if (swiftCodes) {
+            if (swiftCodes && swiftCodes.length > 0) {
                 const country_name = swiftCodes[0].countryName;
                 res.json({
                     countryISO2: countryISO2,
@@ -90,7 +89,8 @@ export class SwiftCodeController {
             }
         } catch (error) {
             console.error('Error fetching SWIFT codes by country:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            //res.status(500).json({ message: `Internal server error: ${error}` });
+            res.status(500).json({ message: `Internal server error`});
         }
     }
 
@@ -103,6 +103,7 @@ export class SwiftCodeController {
                 res.status(400).json({
                     message: 'Missing required fields. Please provide address, name, countryISO2, countryName, isHeadquarter, and swiftCode.'
                 });
+                return;
             }
             
             
@@ -110,10 +111,11 @@ export class SwiftCodeController {
             const isHQ = Boolean(isHeadquarter);
             
             //If isHeadquarter is true, ensure the SWIFT code ends with 'XXX'
-            if (isHQ && !swiftCode.toUpperCase().endsWith('XXX')) {
+            if (isHQ && !swiftCode.trim().toUpperCase().endsWith('XXX')) {
                 res.status(400).json({
                     message: 'Headquarters SWIFT codes must end with XXX.'
                 });
+                return;
             }
             
             const result = await this.dbService.addSwiftCode({
@@ -132,7 +134,8 @@ export class SwiftCodeController {
             }
         } catch (error) {
             console.error('Failed to add SWIFT code:', error);
-            res.status(500).json({ message: 'Internal server error' });
+            //res.status(500).json({ message: `Internal server error: ${error}` }); //for debugging
+            res.status(500).json({ message: `Internal server error`});
         }
     }
 
@@ -143,6 +146,7 @@ export class SwiftCodeController {
             
             if (!swiftCode) {
                 res.status(400).json({ message: 'SWIFT code is required' });
+                return;
             }
             
             const result = await this.dbService.deleteSwiftCode(swiftCode);
@@ -154,6 +158,7 @@ export class SwiftCodeController {
             }
         } catch (error) {
             console.error('Failed to delete SWIFT code:', error);
+            //res.status(500).json({ message: `Internal server error: ${error}` }); //for debugging
             res.status(500).json({ message: 'Internal server error' });
         }
 

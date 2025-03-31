@@ -1,4 +1,4 @@
-export interface SwiftCode {
+export type SwiftCode = {
     countryISO2: string;
     swiftCode: string;
     codeType: string;

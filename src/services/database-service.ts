@@ -1,4 +1,4 @@
-import { SwiftCode } from './../interfaces/swift-interface';
+import { SwiftCode } from '../types/swift-types';
 import { MongoClient, Collection, Db } from 'mongodb';
 import { readFileSync } from 'fs';
 import xlsx from 'xlsx';
@@ -173,32 +173,51 @@ export class DatabaseService {
     }
 
     public async getSwiftCodeByCode(swiftCode: string): Promise<SwiftCode | null> {
-        if (!this.db) {
-            throw new Error('Database connection not established');
-        }
-        const swiftCodesCollection = this.db.collection('swift_codes');
-        return await swiftCodesCollection.findOne({ swiftCode }) as SwiftCode | null;
+        try{
+            if (!this.db) {
+                throw new Error('Database connection not established');
+            }
+            const swiftCodesCollection = this.db.collection('swift_codes');
+            return await swiftCodesCollection.findOne({ swiftCode }) as SwiftCode | null;
+        }catch (error) {
+                console.error('Unable to get SWIFT details by code', error);
+                throw error;
+            }
     }
 
     public async getBranchesForHeadquarter(branchesSwiftCodes: string[]): Promise<SwiftCode[]|null> {
         if (!this.db) {
             throw new Error('Database connection not established');
         }
-        const swiftCodesCollection = this.db.collection('swift_codes');
-        return await swiftCodesCollection.find({ swiftCode: { $in: branchesSwiftCodes } })
-        .map(({ _id, ...doc}) => doc)
-        .toArray() as SwiftCode[] | null;
-        
+        try{
+            if (branchesSwiftCodes.length === 0) {
+                console.log('empty branches list provided');
+                return null;    
+            }
+            const swiftCodesCollection = this.db.collection('swift_codes');
+            return await swiftCodesCollection.find({ swiftCode: { $in: branchesSwiftCodes } })
+            .map(({ _id, ...doc}) => doc)
+            .toArray() as SwiftCode[] | null;
+        } 
+        catch (error) {
+            console.error(`Unable to retrieve branches for headquarter, branch list: ${branchesSwiftCodes}, \n ${error} `);
+            throw error;
+        }
     }
 
     public async getSwiftCodesByCountry(countryISO2: string): Promise<SwiftCode[] | null> {
         if (!this.db) {
             throw new Error('Database connection not established');
         }
-        const swiftCodesCollection = this.db.collection('swift_codes');
-        return await swiftCodesCollection.find({ countryISO2 })
-        .map(({ _id, ...doc}) => doc)
-        .toArray() as SwiftCode[] | null;
+        try{
+            const swiftCodesCollection = this.db.collection('swift_codes');
+            return await swiftCodesCollection.find({ countryISO2 })
+            .map(({ _id, ...doc}) => doc)
+            .toArray() as SwiftCode[] | null;
+        } catch (error) {
+            console.error('Unable to get SWIFT codes by country', error);
+            throw error;
+        }
     }
 
     public async addSwiftCode(swiftCodeData: {
@@ -320,23 +339,24 @@ export class DatabaseService {
                 const branchPrefix = swiftCode.slice(0, 8);
                 
                 // Find the headquarters by matching both the prefix and isHeadquarter flag
-                await swiftCodesCollection.updateOne(
+                const headquaters = await swiftCodesCollection.findOne(
                     { 
                         swiftCode: { $regex: `^${branchPrefix}` },
                         isHeadquarter: true
                     },
-                    { 
-                        $set: { 
-                            branches: { 
-                                $filter: { 
-                                    input: "$branches", 
-                                    as: "branch", 
-                                    cond: { $ne: ["$$branch", swiftCode] } // Keep only elements not equal to swiftCode
-                                } 
-                            } 
-                        } 
-                    }
                 );
+                
+                if (headquaters && Array.isArray(headquaters.branches)) {
+                    // Remove the branch manually
+                    const updatedBranches = headquaters.branches.filter(branch => branch !== swiftCode);
+            
+                    // Update the headquarters document with the new branches array
+                    await swiftCodesCollection.updateOne(
+                        { swiftCode: headquaters.swiftCode },
+                        { $set: { branches: updatedBranches } }
+                    );
+                }
+                
             }
             
             const result = await swiftCodesCollection.deleteOne({ swiftCode });

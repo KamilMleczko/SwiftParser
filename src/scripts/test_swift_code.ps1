@@ -6,7 +6,7 @@ $body = @{
     countryISO2 = "US"
     countryName = "United States"
     isHeadquarter = $false
-    swiftCode = "BCOSCLR1L3"
+    swiftCode = "TESTUS33000"
 } | ConvertTo-Json -Depth 10
 Write-Output "Response from server:"
 $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $body

@@ -14,6 +14,7 @@ async function startServer() {
     app.get("/", (req, res)=>{
         res.send("Hello World!");
     });
+    
     //v1/swift-codes
     const swiftRoutes = new SwiftRoutes(dbService);
     app.use("/v1/swift-codes", swiftRoutes.getRouter());
